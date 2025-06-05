@@ -1,14 +1,36 @@
 from flask import Flask, request, jsonify
-from druggpt_core import generate_response
+import openai
+import os
+
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 app = Flask(__name__)
 
-@app.route("/chat", methods=["POST"])
-def chat():
-    data = request.get_json()
-    message = data.get("message", "")
-    reply = generate_response(message)
-    return jsonify({"response": reply})
+@app.route("/")
+def home():
+    return "DrugGPT is alive."
+
+@app.route("/ask", methods=["POST"])
+def ask():
+    user_input = request.json.get("prompt")
+
+    if not user_input:
+        return jsonify({"error": "Missing prompt"}), 400
+
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "You are DrugGPT, an expert on legal and illegal substances."},
+                {"role": "user", "content": user_input}
+            ],
+            temperature=0.7
+        )
+        answer = response['choices'][0]['message']['content']
+        return jsonify({"response": answer})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    port = int(os.environ.get("PORT", 8000))  # Render sets PORT dynamically
+    app.run(host="0.0.0.0", port=port)
